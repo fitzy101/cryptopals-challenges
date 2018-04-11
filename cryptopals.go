@@ -157,14 +157,19 @@ func challenge4() {
 }
 
 func challenge5() {
-	encrypted := []byte{}
-	for i, b := range challenge5a {
-		enc := byte(b) ^ iceKey[i%3]
-		encrypted = append(encrypted, enc)
-	}
-
+	encrypted := repeatKeyEncrypt([]byte(challenge5a), []byte(iceKey))
 	test(hex.EncodeToString(encrypted), challenge5atest)
+}
 
+// repeatKeyEncrypt takes a byte buffer and a key, and encrypts the buffer with
+// the given key with a rotating key xor operation. The encrypted buffer is
+// returned.
+func repeatKeyEncrypt(toEncrypt []byte, key []byte) []byte {
+	result := []byte{}
+	for idx, b := range toEncrypt {
+		result = append(result, b^key[idx%len(key)])
+	}
+	return result
 }
 
 // hexStringsValid takes an array of hex-encoded strings, and returns the decoded
