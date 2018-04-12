@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"unicode"
@@ -14,7 +15,9 @@ import (
 const (
 	charSet       = " !\"#$%&\\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 	lowerAlphaSet = "abcdefghijklmnopqrstuvwxyz"
+	hexSet        = "0123456789ABCDEF"
 	iceKey        = "ICE"
+	maxKeysize    = 40
 )
 
 var (
@@ -87,6 +90,9 @@ func main() {
 
 	fmt.Println("Challenge 5")
 	challenge5()
+
+	fmt.Println("Challenge 6")
+	challenge6()
 }
 
 func exit(success bool) {
@@ -159,6 +165,83 @@ func challenge4() {
 func challenge5() {
 	encrypted := repeatKeyEncrypt([]byte(challenge5a), []byte(iceKey))
 	test(hex.EncodeToString(encrypted), challenge5atest)
+}
+
+func challenge6() {
+	file, err := readWholeFile("files/6.txt")
+	if err != nil {
+		fmt.Println(err.Error())
+		exit(false)
+	}
+	file, err = base64.StdEncoding.DecodeString(string(file))
+	if err != nil {
+		fmt.Println(err.Error())
+		exit(false)
+	}
+
+	keySize := 1
+	var bestNormal float64 = 9999.00
+	curBest := 0
+	for keySize <= maxKeysize {
+		set1 := file[:keySize]
+		set2 := file[keySize : keySize*2]
+		set3 := file[keySize*2 : keySize*3]
+		set4 := file[keySize*3 : keySize*4]
+		totalDist := 0
+		for i := range set1 {
+			totalDist += hammingDistance(set1[i], set2[i])
+		}
+		for i := range set2 {
+			totalDist += hammingDistance(set2[i], set3[i])
+		}
+		for i := range set3 {
+			totalDist += hammingDistance(set3[i], set4[i])
+		}
+		totalDist = totalDist / 3 // Average of the 3 sets.
+		normalized := float64(totalDist) / float64(keySize)
+		if normalized < bestNormal {
+			bestNormal = normalized
+			curBest = keySize
+		}
+		keySize++
+	}
+
+	// Split up the ciphertext into blocks of len(keysize).
+	keySize = curBest
+	split := [][]byte{}
+	for i := 0; i < len(file); i += keySize {
+		split = append(split, file[i:i+keySize])
+	}
+
+	transposed := [][]byte{}
+	for i := 0; i < keySize; i++ {
+		curB := []byte{}
+		for _, b := range split {
+			curB = append(curB, b[i])
+		}
+		transposed = append(transposed, curB)
+	}
+
+	// Score each string against the potential rotating xor byte.
+	for _, b := range transposed {
+		allEnc := []string{}
+		for key := range charSet {
+			enc := repeatKeyEncrypt(b, []byte{charSet[key]})
+			allEnc = append(allEnc, string(enc))
+		}
+		highest := scoreStrings(allEnc)
+		fmt.Println(highest)
+	}
+}
+
+// hammingDistance calculates the bit difference between two bytes.
+func hammingDistance(a, b byte) int {
+	c := 0
+	v := uint8(a ^ b)
+	for c = 0; v != 0; c++ {
+		v &= v - 1
+	}
+	return c
 }
 
 // repeatKeyEncrypt takes a byte buffer and a key, and encrypts the buffer with
@@ -330,4 +413,13 @@ func readStringsFromFilename(name string) ([]string, error) {
 		resp = append(resp, dScanner.Text())
 	}
 	return resp, nil
+}
+
+// readWholeFile returns the entire contents of a file in an array.
+func readWholeFile(name string) ([]byte, error) {
+	data, err := ioutil.ReadFile(name)
+	if err != nil {
+		return data, err
+	}
+	return data, nil
 }
