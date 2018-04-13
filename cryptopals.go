@@ -179,31 +179,41 @@ func challenge6() {
 		exit(false)
 	}
 
-	keySize := 1
-	var bestNormal float64 = 9999.00
 	curBest := 0
-	for keySize <= maxKeysize {
+	bestNormal := 9999.00
+	keySize := 1
+	for keySize = 1; keySize <= maxKeysize; keySize++ {
 		set1 := file[:keySize]
 		set2 := file[keySize : keySize*2]
 		set3 := file[keySize*2 : keySize*3]
 		set4 := file[keySize*3 : keySize*4]
+		set5 := file[keySize*4 : keySize*5]
+		set6 := file[keySize*5 : keySize*6]
+		set7 := file[keySize*6 : keySize*7]
+		set8 := file[keySize*7 : keySize*8]
+		set9 := file[keySize*8 : keySize*9]
+		set10 := file[keySize*9 : keySize*10]
+		set11 := file[keySize*10 : keySize*11]
 		totalDist := 0
-		for i := range set1 {
+		for i := 0; i < keySize; i++ {
 			totalDist += hammingDistance(set1[i], set2[i])
-		}
-		for i := range set2 {
 			totalDist += hammingDistance(set2[i], set3[i])
-		}
-		for i := range set3 {
 			totalDist += hammingDistance(set3[i], set4[i])
+			totalDist += hammingDistance(set4[i], set5[i])
+			totalDist += hammingDistance(set5[i], set6[i])
+			totalDist += hammingDistance(set6[i], set7[i])
+			totalDist += hammingDistance(set7[i], set8[i])
+			totalDist += hammingDistance(set8[i], set9[i])
+			totalDist += hammingDistance(set9[i], set10[i])
+			totalDist += hammingDistance(set10[i], set11[i])
 		}
-		totalDist = totalDist / 3 // Average of the 3 sets.
-		normalized := float64(totalDist) / float64(keySize)
+
+		avgDist := totalDist / 10
+		normalized := float64(avgDist) / float64(keySize)
 		if normalized < bestNormal {
 			bestNormal = normalized
 			curBest = keySize
 		}
-		keySize++
 	}
 
 	// Split up the ciphertext into blocks of len(keysize).
@@ -223,15 +233,23 @@ func challenge6() {
 	}
 
 	// Score each string against the potential rotating xor byte.
-	for _, b := range transposed {
-		allEnc := []string{}
-		for key := range charSet {
-			enc := repeatKeyEncrypt(b, []byte{charSet[key]})
-			allEnc = append(allEnc, string(enc))
+	var fullkey []byte
+	for i := range transposed {
+		var topScore float32 = 9999.00
+		var topKey byte
+		for _, key := range charSet {
+			enc := repeatKeyEncrypt(transposed[i], []byte{byte(key)})
+			score := chiScore(string(enc))
+			if score < topScore {
+				topScore = score
+				topKey = byte(key)
+			}
 		}
-		highest := scoreStrings(allEnc)
-		fmt.Println(highest)
+		fullkey = append(fullkey, topKey)
 	}
+
+	fileDecrypted := repeatKeyEncrypt(file, fullkey)
+	fmt.Printf("key: %s, cleartext: %s\n", fullkey, fileDecrypted)
 }
 
 // hammingDistance calculates the bit difference between two bytes.
